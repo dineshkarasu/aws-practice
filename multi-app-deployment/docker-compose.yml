@@ -62,7 +62,9 @@ services:
       retries: 3
       start_period: 20s
     networks:
-      - multi-app-network
+      multi-app-network:
+        aliases:
+          - api
     restart: unless-stopped
 
   # HRMS Web Frontend
