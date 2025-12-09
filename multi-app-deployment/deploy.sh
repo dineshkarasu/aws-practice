@@ -86,10 +86,10 @@ echo "   This may take 10-15 minutes for first build..."
 # Use docker compose (v2) or docker-compose (v1)
 if docker compose version &> /dev/null; then
     echo "   Using Docker Compose V2..."
-    docker compose build --no-cache || docker compose build
+    docker compose build
 else
     echo "   Using Docker Compose V1..."
-    docker-compose build --no-cache || docker-compose build
+    docker-compose build
 fi
 echo "✅ Images built successfully"
 echo ""
