@@ -28,6 +28,9 @@ services:
     build:
       context: ../HRMS
       dockerfile: Dockerfile.combined
+      args:
+        - REACT_APP_API_URL=https://dinesh-app1.zamait.in
+        - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
     container_name: hrms-app
     environment:
       - POSTGRES_USER=${HRMS_POSTGRES_USER:-postgres}
@@ -38,8 +41,6 @@ services:
       - PYTHONUNBUFFERED=1
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - REACT_APP_API_URL=https://dinesh-app1.zamait.in
-      - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
     volumes:
       - hrms_postgres_data:/var/lib/postgresql/data
     networks:

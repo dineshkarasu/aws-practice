@@ -46,11 +46,15 @@ fi
 echo "✅ Docker: $(docker --version)"
 
 # Check if Docker Compose is installed
-if ! command -v docker-compose &> /dev/null; then
+if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
     echo "❌ Docker Compose is not installed. Please install Docker Compose first."
     exit 1
 fi
-echo "✅ Docker Compose: $(docker-compose --version)"
+if docker compose version &> /dev/null; then
+    echo "✅ Docker Compose: $(docker compose version)"
+else
+    echo "✅ Docker Compose: $(docker-compose --version)"
+fi
 echo ""
 
 # Verify application directories exist
@@ -68,18 +72,34 @@ echo ""
 
 # Stop existing containers
 echo "🛑 Step 3/6: Stopping existing containers..."
-docker-compose down -v 2>/dev/null || true
+if docker compose version &> /dev/null; then
+    docker compose down -v 2>/dev/null || true
+else
+    docker-compose down -v 2>/dev/null || true
+fi
 echo "✅ Existing containers stopped"
 echo ""
 
 # Build and start containers
 echo "🔨 Step 4/6: Building Docker images..."
-docker-compose build --no-cache
+echo "   This may take 10-15 minutes for first build..."
+# Use docker compose (v2) or docker-compose (v1)
+if docker compose version &> /dev/null; then
+    echo "   Using Docker Compose V2..."
+    docker compose build --no-cache || docker compose build
+else
+    echo "   Using Docker Compose V1..."
+    docker-compose build --no-cache || docker-compose build
+fi
 echo "✅ Images built successfully"
 echo ""
 
 echo "🚀 Step 5/6: Starting containers..."
-docker-compose up -d
+if docker compose version &> /dev/null; then
+    docker compose up -d
+else
+    docker-compose up -d
+fi
 echo "✅ Containers started"
 echo ""
 
@@ -90,7 +110,11 @@ sleep 20
 # Check container status
 echo ""
 echo "📊 Container Status:"
-docker-compose ps
+if docker compose version &> /dev/null; then
+    docker compose ps
+else
+    docker-compose ps
+fi
 echo ""
 
 # Get server IP
