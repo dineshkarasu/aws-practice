@@ -41,8 +41,10 @@ import os
 environment = os.getenv("ENVIRONMENT", "dev")
 
 # Configure allowed origins based on environment
-if environment.lower() == "prod":
+if environment.lower() == "prod" or environment.lower() == "production":
     allowed_origins = [
+        "https://dinesh-app1.zamait.in",
+        "http://dinesh-app1.zamait.in",
         "https://hrms.zamait.in",
         "https://api.hrms.zamait.in"
     ]

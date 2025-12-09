@@ -1,401 +1,79 @@
-# Multi-App Deployment - README
+# Multi-App Deployment
 
-Complete deployment setup for running HRMS (App1) and App2 (Node.js) on a single server with Nginx reverse proxy.
+Deploy **HRMS** and **App2** on a single EC2 instance with Nginx reverse proxy and SSL.
 
-## 🏗️ Architecture
+## 🎯 What This Does
 
-```
-                          ┌─────────────────┐
-                          │   Your Server   │
-                          │   Public IP     │
-                          └────────┬────────┘
-                                   │
-                          ┌────────▼────────┐
-                          │  Nginx Proxy    │
-                          │   Port 80/443   │
-                          └────┬────────┬───┘
-                               │        │
-              ┌────────────────┘        └──────────────┐
-              │                                        │
-     ┌────────▼─────────┐                    ┌────────▼────────┐
-     │  hrms-app        │                    │  app2           │
-     │  (Complete HRMS) │                    │  (Node.js App)  │
-     │  dinesh-app1     │                    │  dinesh-app2    │
-     │  zamait.in       │                    │  zamait.in      │
-     └──────────────────┘                    └─────────────────┘
-     │                                       
-     ├─ PostgreSQL (internal)
-     ├─ FastAPI (internal)
-     └─ Nginx + React (port 80)
-```
+Deploys 2 applications on 1 EC2 instance:
+- **dinesh-app1.zamait.in** → HRMS (PostgreSQL + FastAPI + React)
+- **dinesh-app2.zamait.in** → App2 (Node.js + Express + React)
 
-## 📁 Project Structure
+## 🚀 Quick Deploy (5 Steps)
 
-```
-multi-app-deployment/
-├── docker-compose.yml          # Main orchestration file
-├── .env.template               # Environment variables template
-├── .env                        # Your actual environment (create from template)
-├── deploy.sh                   # Deployment script (Linux/Mac)
-├── deploy.ps1                  # Deployment script (Windows)
-├── setup-ssl.sh                # SSL certificate setup script
-├── README.md                   # This file
-└── nginx/                      # Nginx configuration
-    ├── nginx.conf              # Main nginx config
-    └── conf.d/                 # Site configurations
-        ├── default.conf        # Health check endpoint
-        ├── app1-hrms.conf      # HRMS (App1) configuration
-        └── app2-nodejs.conf    # App2 configuration
-```
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-1. **Server Requirements**:
-   - Linux server (Ubuntu, Amazon Linux, etc.)
-   - Docker & Docker Compose installed
-   - Ports 80 and 443 open
-   - Minimum 2GB RAM, 2 vCPUs
-
-2. **DNS Configuration**:
-   - Create A records pointing to your server IP:
-     - `dinesh-app1.zamait.in` → Your Server IP
-     - `dinesh-app2.zamait.in` → Your Server IP
-
-3. **Application Directories**:
-   - HRMS application at `../HRMS`
-   - App2 application at `../app2`
-
-### Installation Steps
-
-#### Step 1: Configure Environment
-
+### 1. Upload to EC2
 ```bash
-cd multi-app-deployment
+scp -r Project ec2-user@<EC2_IP>:~/
+```
 
-# Copy environment template
-cp .env.template .env
+### 2. Initial Setup (one-time)
+```bash
+ssh ec2-user@<EC2_IP>
+cd ~/Project/multi-app-deployment
+chmod +x *.sh
+./deploy-ec2.sh
+```
 
-# Edit with your actual values
+### 3. Configure
+```bash
 nano .env
+# Update: HRMS_POSTGRES_PASSWORD and LETSENCRYPT_EMAIL
 ```
 
-Update these critical values:
-```env
-HRMS_POSTGRES_PASSWORD=your_secure_password
-LETSENCRYPT_EMAIL=your@email.com
-APP1_DOMAIN=dinesh-app1.zamait.in
-APP2_DOMAIN=dinesh-app2.zamait.in
-```
-
-#### Step 2: Deploy Applications
-
-**Linux/Mac:**
+### 4. Deploy
 ```bash
-chmod +x deploy.sh
 ./deploy.sh
 ```
 
-**Windows (PowerShell):**
-```powershell
-.\deploy.ps1
-```
-
-#### Step 3: Setup SSL Certificates (Production)
-
-⚠️ **Important**: Only run after DNS is configured and pointing to your server!
-
-```bash
-chmod +x setup-ssl.sh
-./setup-ssl.sh
-```
-
-This will:
-- Install Certbot
-- Obtain SSL certificates from Let's Encrypt
-- Configure HTTPS for both domains
-- Set up automatic renewal
-
-### Access Your Applications
-
-**With SSL (Production):**
-- HRMS: https://dinesh-app1.zamait.in
-- App2: https://dinesh-app2.zamait.in
-
-**Without SSL (Testing):**
-- HRMS: http://dinesh-app1.zamait.in
-- App2: http://dinesh-app2.zamait.in
-
-## 📊 Container Details
-
-| Container | Port | Purpose | Health Check |
-|-----------|------|---------|--------------|
-| nginx-proxy | 80, 443 | Reverse proxy & SSL termination | /health |
-| hrms-app | 80 (internal) | Complete HRMS (PostgreSQL + API + Web) | /health |
-| app2 | 4000 (internal) | Node.js full stack app | /api/health |
-
-**Total: 3 containers** (1 nginx proxy + 2 applications)
-
-## 🛠️ Management Commands
-
-### View Logs
-```bash
-# All services
-docker-compose logs -f
-
-# Specific service
-docker-compose logs -f hrms-api
-docker-compose logs -f app2
-docker-compose logs -f nginx
-```
-
-### Restart Services
-```bash
-# All services
-docker-compose restart
-
-# Individual services
-docker-compose restart hrms-api
-docker-compose restart app2
-docker-compose restart nginx
-```
-
-### Stop/Start
-```bash
-# Stop all
-docker-compose down
-
-# Start all
-docker-compose up -d
-
-# Rebuild and start
-docker-compose up -d --build
-```
-
-### Check Status
-```bash
-# Container status
-docker-compose ps
-
-# Health status
-docker inspect nginx-proxy --format='{{.State.Health.Status}}'
-docker inspect hrms-api --format='{{.State.Health.Status}}'
-docker inspect app2 --format='{{.State.Health.Status}}'
-```
-
-## 🔒 SSL/TLS Configuration
-
-### Initial Setup (HTTP Only)
-When first deployed, applications run on HTTP (port 80) until SSL certificates are obtained.
-
-### Obtaining Certificates
+### 5. Enable HTTPS
 ```bash
 ./setup-ssl.sh
 ```
 
-### Certificate Renewal
-Certificates expire in 90 days. Set up automatic renewal:
+## 📚 Full Documentation
+
+- **[QUICK-START.md](QUICK-START.md)** - Commands reference
+- **[README-DEPLOYMENT.md](README-DEPLOYMENT.md)** - Complete guide with troubleshooting
+
+## 📁 Files
+
+```
+multi-app-deployment/
+├── docker-compose.yml      # Defines 5 containers
+├── .env.template          # Config template
+├── deploy-ec2.sh         # Installs Docker, Git, etc.
+├── deploy.sh             # Builds & starts containers
+├── deploy.ps1            # Windows version
+├── setup-ssl.sh          # Gets SSL certificates
+└── nginx/                # Reverse proxy config
+```
+
+## 🔧 Manage
 
 ```bash
-sudo crontab -e
+docker-compose ps           # Check status
+docker-compose logs -f      # View logs
+docker-compose restart      # Restart all
+docker-compose down         # Stop all
 ```
 
-Add:
-```cron
-0 3 * * * certbot renew --quiet --deploy-hook 'cd /path/to/multi-app-deployment && docker-compose restart nginx'
-```
+## 🌐 Access After Deployment
 
-### Manual Renewal
-```bash
-sudo certbot renew
-docker-compose restart nginx
-```
+- https://dinesh-app1.zamait.in (HRMS)
+- https://dinesh-app2.zamait.in (App2)
+- https://dinesh-app1.zamait.in/docs (API docs)
 
-## 🔧 Configuration Files
+## ✅ Prerequisites
 
-### Nginx Configuration
-
-**Main Config**: `nginx/nginx.conf`
-- Global settings
-- Worker processes
-- Gzip compression
-
-**App1 Config**: `nginx/conf.d/app1-hrms.conf`
-- Routes for HRMS application
-- API proxy to hrms-api:8000
-- Frontend proxy to hrms-web:80
-
-**App2 Config**: `nginx/conf.d/app2-nodejs.conf`
-- Routes for App2 application
-- Proxy to app2:4000
-
-### Environment Variables
-
-See `.env.template` for all available configuration options.
-
-Key variables:
-- `HRMS_POSTGRES_PASSWORD`: Database password
-- `APP1_DOMAIN`: Domain for HRMS
-- `APP2_DOMAIN`: Domain for App2
-- `LETSENCRYPT_EMAIL`: Email for SSL certificates
-- `SSL_ENABLED`: Enable/disable SSL (true/false)
-
-## 🚨 Troubleshooting
-
-### Issue: DNS not resolving
-**Solution**: Verify DNS A records:
-```bash
-nslookup dinesh-app1.zamait.in
-nslookup dinesh-app2.zamait.in
-```
-
-### Issue: SSL certificate failed
-**Causes**:
-- DNS not pointing to server
-- Ports 80/443 blocked
-- Domain not accessible
-
-**Solution**:
-```bash
-# Test domain accessibility
-curl http://dinesh-app1.zamait.in/.well-known/acme-challenge/test
-
-# Check ports
-sudo netstat -tlnp | grep :80
-sudo netstat -tlnp | grep :443
-```
-
-### Issue: Container unhealthy
-**Solution**:
-```bash
-# Check logs
-docker-compose logs [service-name]
-
-# Restart service
-docker-compose restart [service-name]
-
-# Full restart
-docker-compose down && docker-compose up -d
-```
-
-### Issue: Cannot connect to database
-**Solution**:
-```bash
-# Check database is running
-docker-compose ps hrms-db
-
-# Verify connection
-docker exec -it hrms-db psql -U postgres -d hrmsdb
-```
-
-### Issue: 502 Bad Gateway
-**Causes**:
-- Backend service not running
-- Backend service unhealthy
-
-**Solution**:
-```bash
-# Check backend status
-docker-compose ps hrms-api app2
-
-# Restart backends
-docker-compose restart hrms-api app2
-```
-
-## 📈 Monitoring
-
-### Health Checks
-```bash
-# Nginx
-curl http://localhost/health
-
-# HRMS API
-curl http://dinesh-app1.zamait.in/health
-
-# App2
-curl http://dinesh-app2.zamait.in/api/health
-```
-
-### Container Stats
-```bash
-docker stats
-```
-
-### Disk Usage
-```bash
-docker system df
-```
-
-## 🔐 Security Best Practices
-
-✅ **Implemented**:
-- Non-root users in containers
-- HTTPS/SSL encryption
-- Security headers (HSTS, X-Frame-Options, etc.)
-- CORS configuration
-- Network isolation
-
-⚠️ **Recommendations**:
-1. Change default database passwords in `.env`
-2. Regularly update Docker images
-3. Monitor logs for suspicious activity
-4. Set up fail2ban for SSH protection
-5. Enable firewall (ufw/firewalld)
-6. Regular backups of database volumes
-
-## 💾 Backup & Restore
-
-### Backup Database
-```bash
-# Create backup
-docker exec hrms-db pg_dump -U postgres hrmsdb > backup_$(date +%Y%m%d).sql
-
-# Backup volume
-docker run --rm -v hrms-postgres-data:/data -v $(pwd):/backup ubuntu tar czf /backup/hrms-db-backup.tar.gz /data
-```
-
-### Restore Database
-```bash
-# Restore from SQL dump
-cat backup_20251209.sql | docker exec -i hrms-db psql -U postgres hrmsdb
-```
-
-## 🚀 Scaling & Performance
-
-### Resource Limits
-Add to `docker-compose.yml`:
-```yaml
-services:
-  hrms-api:
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1G
-```
-
-### Multiple Workers
-For high traffic, scale backend services:
-```bash
-docker-compose up -d --scale hrms-api=3
-```
-
-## 📞 Support
-
-For issues or questions:
-1. Check logs: `docker-compose logs -f`
-2. Review this README
-3. Check individual app documentation:
-   - HRMS: `../HRMS/README.md`
-   - App2: `../app2/README.md`
-
-## 📄 License
-
-This deployment configuration is provided as-is for the HRMS and App2 projects.
-
----
-
-**Deployment Version**: 1.0  
-**Last Updated**: December 9, 2025  
-**Maintained by**: DevOps Team
+- EC2 instance (t2.medium, Amazon Linux 2/Ubuntu)
+- DNS: Both domains pointing to EC2 public IP
+- Security Group: Ports 22, 80, 443 open

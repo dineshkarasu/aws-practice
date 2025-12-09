@@ -27,15 +27,7 @@ FROM nginx:alpine
 # Copy built files from build stage
 COPY --from=build /app/build /usr/share/nginx/html
 
-# Copy nginx configurations
-# Use nginx-internal.conf for container deployment (behind reverse proxy)
-# Use nginx.dev.conf for development (HTTP only)
-# Use nginx.conf for production (HTTPS with SSL - standalone)
-COPY nginx-internal.conf /etc/nginx/conf.d/nginx-internal.conf
-COPY nginx.dev.conf /etc/nginx/conf.d/nginx.dev.conf
-COPY nginx.conf /etc/nginx/conf.d/nginx.prod.conf
-
-# Default to internal config (for use behind reverse proxy)
+# Copy nginx configuration (internal config for use behind reverse proxy)
 COPY nginx-internal.conf /etc/nginx/conf.d/default.conf
 
 # Expose port 80
