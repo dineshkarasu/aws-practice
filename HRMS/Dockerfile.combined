@@ -1,0 +1,129 @@
+# Multi-stage build for HRMS complete application
+# This Dockerfile combines PostgreSQL, FastAPI backend, and React frontend in a single container
+
+# Stage 1: Build React Frontend
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy frontend files
+COPY hrms-web/package*.json ./
+RUN npm install
+
+COPY hrms-web/ ./
+
+# Build arguments
+ARG REACT_APP_API_URL
+ARG REACT_APP_ENVIRONMENT
+ENV REACT_APP_API_URL=${REACT_APP_API_URL}
+ENV REACT_APP_ENVIRONMENT=${REACT_APP_ENVIRONMENT}
+
+# Build React app
+RUN npm run build
+
+# Stage 2: Final combined image
+FROM python:3.11-slim
+
+# Install system dependencies including PostgreSQL, Nginx, and supervisord
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql \
+    postgresql-contrib \
+    nginx \
+    supervisor \
+    wget \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create application directories
+WORKDIR /app
+
+# Set up PostgreSQL
+ENV POSTGRES_USER=postgres
+ENV POSTGRES_PASSWORD=postgres123
+ENV POSTGRES_DB=testdb
+ENV PGDATA=/var/lib/postgresql/data
+
+# Configure PostgreSQL to accept connections
+RUN mkdir -p /var/lib/postgresql/data && \
+    chown -R postgres:postgres /var/lib/postgresql && \
+    mkdir -p /run/postgresql && \
+    chown -R postgres:postgres /run/postgresql
+
+# Copy API requirements and install Python dependencies
+COPY hrms-api/requirements.txt /app/api/
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /app/api/requirements.txt
+
+# Copy API code
+COPY hrms-api/ /app/api/
+
+# Copy built frontend from builder stage
+COPY --from=frontend-builder /app/frontend/build /usr/share/nginx/html
+
+# Copy nginx configuration for internal routing
+COPY hrms-web/nginx-internal.conf /etc/nginx/sites-available/default
+RUN rm -f /etc/nginx/sites-enabled/default && \
+    ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
+
+# Create supervisord configuration
+RUN mkdir -p /var/log/supervisor
+COPY <<EOF /etc/supervisor/conf.d/supervisord.conf
+[supervisord]
+nodaemon=true
+user=root
+logfile=/var/log/supervisor/supervisord.log
+pidfile=/var/run/supervisord.pid
+
+[program:postgresql]
+command=/usr/lib/postgresql/15/bin/postgres -D /var/lib/postgresql/data
+user=postgres
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/supervisor/postgresql.err.log
+stdout_logfile=/var/log/supervisor/postgresql.out.log
+priority=1
+
+[program:init-db]
+command=/bin/bash -c "sleep 5 && su - postgres -c 'psql -c \"SELECT 1\"' || su - postgres -c 'initdb -D /var/lib/postgresql/data' && sleep 2"
+autostart=true
+autorestart=false
+stderr_logfile=/var/log/supervisor/init-db.err.log
+stdout_logfile=/var/log/supervisor/init-db.out.log
+priority=2
+
+[program:api]
+command=uvicorn main:app --host 0.0.0.0 --port 8000
+directory=/app/api
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/supervisor/api.err.log
+stdout_logfile=/var/log/supervisor/api.out.log
+environment=PORT=8000,PYTHONUNBUFFERED=1,DATABASE_URL="postgresql://%(ENV_POSTGRES_USER)s:%(ENV_POSTGRES_PASSWORD)s@localhost:5432/%(ENV_POSTGRES_DB)s"
+priority=3
+
+[program:nginx]
+command=/usr/sbin/nginx -g "daemon off;"
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/supervisor/nginx.err.log
+stdout_logfile=/var/log/supervisor/nginx.out.log
+priority=4
+EOF
+
+# Initialize PostgreSQL data directory
+USER postgres
+RUN /usr/lib/postgresql/15/bin/initdb -D /var/lib/postgresql/data && \
+    echo "host all all 0.0.0.0/0 md5" >> /var/lib/postgresql/data/pg_hba.conf && \
+    echo "listen_addresses='*'" >> /var/lib/postgresql/data/postgresql.conf
+
+USER root
+
+# Expose port 80 (nginx serves both frontend and proxies API)
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
+
+# Start supervisord to manage all services
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

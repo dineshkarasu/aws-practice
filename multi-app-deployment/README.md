@@ -18,20 +18,15 @@ Complete deployment setup for running HRMS (App1) and App2 (Node.js) on a single
               ┌────────────────┘        └──────────────┐
               │                                        │
      ┌────────▼─────────┐                    ┌────────▼────────┐
+     │  hrms-app        │                    │  app2           │
+     │  (Complete HRMS) │                    │  (Node.js App)  │
      │  dinesh-app1     │                    │  dinesh-app2    │
      │  zamait.in       │                    │  zamait.in      │
-     │  (HRMS)          │                    │  (Node.js App)  │
-     └──────┬───────┬───┘                    └─────────────────┘
-            │       │
-     ┌──────▼──┐  ┌─▼──────┐
-     │ API     │  │ Web    │
-     │ :8000   │  │ :80    │
-     └─────────┘  └────────┘
-            │
-     ┌──────▼──────┐
-     │ PostgreSQL  │
-     │ :5432       │
-     └─────────────┘
+     └──────────────────┘                    └─────────────────┘
+     │                                       
+     ├─ PostgreSQL (internal)
+     ├─ FastAPI (internal)
+     └─ Nginx + React (port 80)
 ```
 
 ## 📁 Project Structure
@@ -137,10 +132,10 @@ This will:
 | Container | Port | Purpose | Health Check |
 |-----------|------|---------|--------------|
 | nginx-proxy | 80, 443 | Reverse proxy & SSL termination | /health |
-| hrms-db | 5432 (internal) | PostgreSQL database | pg_isready |
-| hrms-api | 8000 (internal) | HRMS FastAPI backend | /health |
-| hrms-web | 80 (internal) | HRMS React frontend | / |
+| hrms-app | 80 (internal) | Complete HRMS (PostgreSQL + API + Web) | /health |
 | app2 | 4000 (internal) | Node.js full stack app | /api/health |
+
+**Total: 3 containers** (1 nginx proxy + 2 applications)
 
 ## 🛠️ Management Commands
 

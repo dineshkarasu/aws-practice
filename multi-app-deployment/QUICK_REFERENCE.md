@@ -50,16 +50,15 @@ docker-compose up -d --build         # Rebuild & restart
 ```bash
 docker-compose logs -f               # All logs
 docker-compose logs -f nginx         # Nginx logs
-docker-compose logs -f hrms-api      # HRMS API logs
+docker-compose logs -f hrms-app      # HRMS app logs
 docker-compose logs -f app2          # App2 logs
 ```
 
 ### Individual Service Control
 ```bash
-docker-compose restart hrms-api      # Restart HRMS API
+docker-compose restart hrms-app      # Restart HRMS
 docker-compose restart app2          # Restart App2
 docker-compose restart nginx         # Restart Nginx
-docker-compose restart hrms-web      # Restart HRMS Web
 ```
 
 ---
@@ -69,12 +68,15 @@ docker-compose restart hrms-web      # Restart HRMS Web
 ```
 Internet
    │
-   ├─> dinesh-app1.zamait.in ─> Nginx ─┬─> hrms-web:80 (React)
-   │                                    └─> hrms-api:8000 (FastAPI)
-   │                                        └─> hrms-db:5432 (PostgreSQL)
+   ├─> dinesh-app1.zamait.in ─> Nginx ─> hrms-app:80 (Complete HRMS)
+   │                                      ├─ PostgreSQL (internal)
+   │                                      ├─ FastAPI (internal)
+   │                                      └─ Nginx + React (port 80)
    │
-   └─> dinesh-app2.zamait.in ─> Nginx ───> app2:4000 (Node.js + React)
+   └─> dinesh-app2.zamait.in ─> Nginx ─> app2:4000 (Node.js + React)
 ```
+
+**Total: 3 containers** (nginx-proxy, hrms-app, app2)
 
 ---
 

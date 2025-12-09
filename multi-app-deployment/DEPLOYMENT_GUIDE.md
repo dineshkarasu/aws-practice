@@ -218,9 +218,7 @@ Wait until all containers show "healthy" status:
 ```
 NAME          STATUS
 nginx-proxy   Up (healthy)
-hrms-api      Up (healthy)
-hrms-web      Up (healthy)
-hrms-db       Up (healthy)
+hrms-app      Up (healthy)
 app2          Up (healthy)
 ```
 

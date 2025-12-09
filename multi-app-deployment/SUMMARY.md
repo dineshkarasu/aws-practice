@@ -12,7 +12,7 @@ I've configured a complete multi-app deployment setup for running HRMS (App1) an
 
 ```
 multi-app-deployment/
-├── docker-compose.yml           # Main orchestration (5 containers)
+├── docker-compose.yml           # Main orchestration (3 containers)
 ├── .env.template                # Environment configuration template
 ├── deploy.sh                    # Deployment script (Linux/Mac)
 ├── deploy.ps1                   # Deployment script (Windows)
@@ -43,19 +43,28 @@ multi-app-deployment/
                 │  Container  │
                 └──┬────────┬──┘
                    │        │
+```
+                    Internet
+                       │
+                   Port 80/443
+                       │
+                ┌──────▼──────┐
+                │    Nginx    │  (Reverse Proxy + SSL)
+                │  Container  │
+                └──┬────────┬──┘
+                   │        │
     ┌──────────────┘        └──────────────┐
     │                                      │
     │ dinesh-app1.zamait.in               │ dinesh-app2.zamait.in
     │                                      │
 ┌───▼────────────┐                   ┌────▼──────────┐
-│  HRMS Stack    │                   │     App2      │
-│  (3 containers)│                   │  (1 container)│
+│  hrms-app      │                   │     app2      │
+│  (All-in-one)  │                   │  (All-in-one) │
 ├────────────────┤                   └───────────────┘
-│ hrms-web:80    │                   │ Node.js + React│
-│ hrms-api:8000  │                   │ Port 4000      │
-│ hrms-db:5432   │                   └────────────────┘
+│ Nginx (port 80)│                   │ Node.js + React│
+│ FastAPI :8000  │                   │ Port 4000      │
+│ PostgreSQL     │                   └────────────────┘
 └────────────────┘
-   PostgreSQL
 ```
 
 ---
@@ -65,10 +74,10 @@ multi-app-deployment/
 | Container | Purpose | Port (Internal) | Health Check |
 |-----------|---------|-----------------|--------------|
 | nginx-proxy | Reverse proxy & SSL | 80, 443 | /health |
-| hrms-db | PostgreSQL database | 5432 | pg_isready |
-| hrms-api | FastAPI backend | 8000 | /health |
-| hrms-web | React frontend | 80 | / |
+| hrms-app | Complete HRMS (DB+API+Web) | 80 | /health |
 | app2 | Node.js full stack | 4000 | /api/health |
+
+**Total: 3 containers**
 
 ---
 
