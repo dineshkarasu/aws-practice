@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      - hrms-web
+      - app2
+    networks:
+      - multi-app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # HRMS Database
+  hrms-db:
+    image: postgres:15-alpine
+    container_name: hrms-db
+    environment:
+      - POSTGRES_USER=${HRMS_POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${HRMS_POSTGRES_PASSWORD:-postgres123}
+      - POSTGRES_DB=${HRMS_POSTGRES_DB:-testdb}
+    volumes:
+      - hrms_postgres_data:/var/lib/postgresql/data
+    networks:
+      - multi-app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # HRMS API Backend
+  hrms-api:
+    build:
+      context: ../HRMS/hrms-api
+      dockerfile: Dockerfile
+    container_name: hrms-api
+    environment:
+      - PORT=8000
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql://${HRMS_POSTGRES_USER:-postgres}:${HRMS_POSTGRES_PASSWORD:-postgres123}@hrms-db:5432/${HRMS_POSTGRES_DB:-testdb}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      hrms-db:
+        condition: service_healthy
+    networks:
+      - multi-app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # HRMS Frontend Web
+  hrms-web:
+    build:
+      context: ../HRMS/hrms-web
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_URL=https://dinesh-app1.zamait.in
+        - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
+    container_name: hrms-web
+    depends_on:
+      hrms-api:
+        condition: service_healthy
+    networks:
+      - multi-app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # App2 - Full Stack Node.js Application
+  app2:
+    build:
+      context: ../app2
+      dockerfile: Dockerfile
+    container_name: app2
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+    networks:
+      - multi-app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  multi-app-network:
+    driver: bridge
+    name: multi-app-network
+
+volumes:
+  hrms_postgres_data:
+    name: hrms-postgres-data

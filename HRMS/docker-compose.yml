@@ -1,0 +1,83 @@
+services:
+  # PostgreSQL Database Service
+  db:
+    image: postgres:15-alpine
+    container_name: hrms-db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hrms-network
+    restart: unless-stopped
+
+  # API Backend Service
+  api:
+    build: ./hrms-api
+    container_name: hrms-api
+    environment:
+      - PORT=${PORT:-8000}
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=${DATABASE_URL}
+      - ENVIRONMENT=${ENVIRONMENT:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - hrms-network
+    restart: unless-stopped
+
+  # Frontend Web Service
+  web:
+    build:
+      context: ./hrms-web
+      args:
+        - REACT_APP_API_URL=${REACT_APP_API_URL}
+        - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-dev}
+    container_name: hrms-web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # SSL volumes - only mount if certificates exist
+      # For dev: certificates won't exist, nginx will use HTTP only
+      # For prod: mount SSL certificates for HTTPS
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      # Check HTTP first, fallback to HTTPS for prod
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost/ || wget --no-verbose --tries=1 --spider --no-check-certificate https://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - hrms-network
+    restart: unless-stopped
+
+networks:
+  hrms-network:
+    driver: bridge
+    name: hrms-network
+
+volumes:
+  postgres_data:
+    name: hrms-postgres-data
