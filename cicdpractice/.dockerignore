@@ -1,0 +1,9 @@
+# Exclude unnecessary files from Docker build context
+.git
+.gitignore
+*.md
+.vscode
+.DS_Store
+Thumbs.db
+*.log
+node_modules
