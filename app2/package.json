@@ -1,0 +1,36 @@
+{
+  "name": "app2",
+  "version": "1.0.0",
+  "description": "Simple full stack web application with Node.js/Express and React",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev:backend": "SET NODE_ENV=development&& nodemon server.js",
+    "dev:frontend": "cd frontend && npm start",
+    "install:frontend": "cd frontend && npm install",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:frontend",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "docker:build": "docker build -t app2:latest .",
+    "docker:run": "docker run -d -p 4000:4000 --name app2 app2:latest",
+    "docker:stop": "docker stop app2 && docker rm app2",
+    "docker:logs": "docker logs -f app2",
+    "clean": "rimraf node_modules frontend/node_modules frontend/build",
+    "test:api": "curl http://localhost:4000/api/health"
+  },
+  "keywords": [
+    "express",
+    "react",
+    "fullstack"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "concurrently": "^8.2.2"
+  }
+}
