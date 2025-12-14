@@ -18,4 +18,4 @@ jobs:
     - name: delete old container
       run: docker rm -f cicd-pipeline || true
     - name: run new container
-      run: docker run -d --name cicd-pipeline -p 80:80 dineshkarasu/cicd-pipeline:latest
+      run: docker rm -f cicd-pipeline || true && docker run -d --restart unless-stopped --name cicd-pipeline -p 127.0.0.1:8080:80 dineshkarasu/cicd-pipeline:latest
