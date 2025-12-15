@@ -1,0 +1,13 @@
+name: Deploy Application
+
+on:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+    - name: Execute deployment script
+      run: bash /home/ec2-user/cicdpractice/deploy.sh
