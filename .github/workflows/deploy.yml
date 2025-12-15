@@ -10,4 +10,7 @@ jobs:
 
     steps:
     - name: Execute deployment script
-      run: bash /home/ec2-user/cicdpractice/deploy.sh
+      run: |
+          cd /home/ec2-user/aws-practice/cicdpractice
+          chmod +x deploy.sh
+          ./deploy.sh
